@@ -2,6 +2,7 @@ package ttl
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -166,8 +167,24 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 				c.rearmAfterRetryExhausted(itemKey)
 			}
 		}()
+		uid := metaObj.GetUID()
+		if uid == "" {
+			execErr = fmt.Errorf("refusing TTL deletion of %s: missing object UID", itemKey)
+			logger.Error(execErr, "failed to delete resource")
+			if c.metrics != nil {
+				c.metrics.RecordTTLFailure(ctx, c.gvr, metaObj.GetNamespace())
+			}
+			return execErr
+		}
+		preconditions := &metav1.Preconditions{
+			UID: &uid,
+		}
+		if rv := metaObj.GetResourceVersion(); rv != "" {
+			preconditions.ResourceVersion = &rv
+		}
 		deleteOptions := metav1.DeleteOptions{
 			PropagationPolicy: determinePropagationPolicy(metaObj, logger),
+			Preconditions:     preconditions,
 		}
 		execErr = c.client.Namespace(namespace).Delete(ctx, metaObj.GetName(), deleteOptions)
 		if execErr != nil {
