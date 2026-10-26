@@ -1816,6 +1816,14 @@ func Test_CustomFunctions_ValidationErrors(t *testing.T) {
 		_, err := jpPatternMatch([]any{"foo", []any{}})
 		assert.ErrorContains(t, err, "JMESPath function 'pattern_match': argument #2 is not of type String or Real")
 	})
+	t.Run("label_match arg 1", func(t *testing.T) {
+		_, err := jpLabelMatch([]any{"not-an-object", map[string]any{"app": "test"}})
+		assert.ErrorContains(t, err, "JMESPath function 'label_match': argument #1 is not of type Object")
+	})
+	t.Run("label_match arg 2", func(t *testing.T) {
+		_, err := jpLabelMatch([]any{map[string]any{"app": "test"}, "not-an-object"})
+		assert.ErrorContains(t, err, "JMESPath function 'label_match': argument #2 is not of type Object")
+	})
 	t.Run("base64_decode", func(t *testing.T) {
 		_, err := jpBase64Decode([]any{123})
 		assert.ErrorContains(t, err, "JMESPath function 'base64_decode': argument #1 is not of type string")
