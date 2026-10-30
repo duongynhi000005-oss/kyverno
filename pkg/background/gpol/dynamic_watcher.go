@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -553,7 +554,18 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 		}
 		return watch, err
 	}
-	watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
+		logger.V(3).Info("listing resources for watcher relist...")
+		list, err := wm.client.GetDynamicInterface().Resource(gvr).List(context.Background(), options)
+		if err != nil {
+			logger.Error(err, "failed to list")
+		}
+		return list, err
+	}
+	watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{
+		ListFunc:  listFunc,
+		WatchFunc: watchFunc,
+	})
 	if err != nil {
 		logger.Error(err, "failed to create watcher")
 		return nil, err
